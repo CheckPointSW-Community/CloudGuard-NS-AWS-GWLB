@@ -1,3 +1,9 @@
+#extra yamls
+vpc.yaml
+autoscale-gwlb.yaml
+management-gwlb.yaml
+gwlb.yaml
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

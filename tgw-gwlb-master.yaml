@@ -4,7 +4,11 @@ Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
       - Label:
-          default: VPC Network Configuration
+          default: TGW Info
+        Parameters:
+          - TgwID
+      - Label:
+          default: Security VPC Network Configuration
         Parameters:
           - AvailabilityZones
           - NumberOfAZs
@@ -17,14 +21,18 @@ Metadata:
           - TgwSubnet2CIDR
           - TgwSubnet3CIDR
           - TgwSubnet4CIDR
+      - Label:
+          default: Internet VPC Network Config
+        Parameters:
+          - InetVPCCIDR
           - NatGwSubnet1CIDR
           - NatGwSubnet2CIDR
           - NatGwSubnet3CIDR
           - NatGwSubnet4CIDR
-          - GWLBeSubnet1CIDR
-          - GWLBeSubnet2CIDR
-          - GWLBeSubnet3CIDR
-          - GWLBeSubnet4CIDR
+          - InetTgwSubnet1CIDR
+          - InetTgwSubnet2CIDR
+          - InetTgwSubnet3CIDR
+          - InetTgwSubnet4CIDR
       - Label:
           default: General Settings
         Parameters:
@@ -43,7 +51,7 @@ Metadata:
           - TargetGroupName
           - CrossZoneLoadBalancing
       - Label:
-          default: Check Point CloudGuard IaaS Security Gateways Auto Scaling Group Configuration
+          default: Check Point CloudGuard NS Gateways Auto Scaling Group Configuration
         Parameters:
           - GatewayName
           - GatewayInstanceType
@@ -55,7 +63,7 @@ Metadata:
           - ControlGatewayOverPrivateOrPublicAddress
           - CloudWatch
       - Label:
-          default: Check Point CloudGuard IaaS Security Management Server Configuration
+          default: Check Point CloudGuard NS Management Server Configuration
         Parameters:
           - ManagementDeploy
           - ManagementInstanceType
@@ -66,6 +74,8 @@ Metadata:
           - GatewayManagement
           - GatewaysAddresses
     ParameterLabels:
+      TgwID:
+        default: TGW ID for attaching Security and Internet VPCs
       AvailabilityZones:
         default: Availability Zones
       NumberOfAZs:
@@ -88,6 +98,8 @@ Metadata:
         default: TGW subnet 3 CIDR
       TgwSubnet4CIDR:
         default: TGW subnet 4 CIDR
+      InetVPCCIDR:
+        default: Inet VPC CIDR
       NatGwSubnet1CIDR:
         default: NAT subnet 1 CIDR
       NatGwSubnet2CIDR:
@@ -96,14 +108,14 @@ Metadata:
         default: NAT subnet 3 CIDR
       NatGwSubnet4CIDR:
         default: NAT subnet 4 CIDR
-      GWLBeSubnet1CIDR:
-        default: Gateway Load Balancer Endpoint subnet 1 CIDR
-      GWLBeSubnet2CIDR:
-        default: Gateway Load Balancer Endpoint subnet 2 CIDR
-      GWLBeSubnet3CIDR:
-        default: Gateway Load Balancer Endpoint subnet 3 CIDR
-      GWLBeSubnet4CIDR:
-        default: Gateway Load Balancer Endpoint subnet 4 CIDR
+      InetTgwSubnet1CIDR:
+        default: Inet TGW subnet 1 CIDR
+      InetTgwSubnet2CIDR:
+        default: Inet TGW subnet 2 CIDR
+      InetTgwSubnet3CIDR:
+        default: Inet TGW subnet 3 CIDR
+      InetTgwSubnet4CIDR:
+        default: Inet TGW subnet 4 CIDR
       KeyName:
         default: Key name
       EnableVolumeEncryption:
@@ -161,6 +173,10 @@ Metadata:
       GatewaysAddresses:
         default: Gateways addresses
 Parameters:
+  TgwID:
+    Description: TGW ID Security VPC and Inet VPC Attachment.  Leave Blank to skip automated attachment & RT creation
+    Type: String
+    Default: tgw-03b9aacf534926471
   AvailabilityZones:
     Description: The Availability Zones (AZs) to use for the subnets in the VPC. Select two (the logical order is preserved)
     Type: List<AWS::EC2::AvailabilityZone::Name>
@@ -204,68 +220,74 @@ Parameters:
   TgwSubnet1CIDR:
     Description: CIDR block for TGW subnet 1 located in the 1st Availability Zone
     Type: String
-    Default: 10.0.12.0/24
+    Default: 10.0.11.0/24
     AllowedPattern: '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/(1[6-9]|2[0-8]))$'
     ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
   TgwSubnet2CIDR:
     Description: CIDR block for TGW subnet 2 located in the 2nd Availability Zone
     Type: String
-    Default: 10.0.22.0/24
+    Default: 10.0.21.0/24
     ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
   TgwSubnet3CIDR:
     Description: CIDR block for TGW subnet 3 located in the 3rd Availability Zone
     Type: String
-    Default: 10.0.32.0/24
+    Default: 10.0.31.0/24
     AllowedPattern: '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/(1[6-9]|2[0-8]))$'
     ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
   TgwSubnet4CIDR:
     Description: CIDR block for TGW subnet 4 located in the 4th Availability Zone
     Type: String
-    Default: 10.0.42.0/24
+    Default: 10.0.41.0/24
+    ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
+  InetVPCCIDR:
+    Description: The CIDR block of the provided Internet VPC.
+    Type: String
+    Default: 10.1.0.0/16
+    AllowedPattern: '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/(1[6-9]|2[0-8]))$'
     ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
   NatGwSubnet1CIDR:
     Description: CIDR block for NAT subnet 1 located in the 1st Availability Zone
     Type: String
-    Default: 10.0.13.0/24
+    Default: 10.1.10.0/24
     AllowedPattern: '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/(1[6-9]|2[0-8]))$'
     ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
   NatGwSubnet2CIDR:
     Description: CIDR block for NAT subnet 2 located in the 2nd Availability Zone
     Type: String
-    Default: 10.0.23.0/24
+    Default: 10.1.20.0/24
     ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
   NatGwSubnet3CIDR:
     Description: CIDR block for NAT subnet 3 located in the 3rd Availability Zone
     Type: String
-    Default: 10.0.33.0/24
+    Default: 10.1.30.0/24
     AllowedPattern: '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/(1[6-9]|2[0-8]))$'
     ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
   NatGwSubnet4CIDR:
     Description: CIDR block for NAT subnet 4 located in the 4th Availability Zone
     Type: String
-    Default: 10.0.43.0/24
+    Default: 10.1.40.0/24
     ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
-  GWLBeSubnet1CIDR:
-    Description: CIDR block for GWLBe subnet 1 located in the 1st Availability Zone
+  InetTgwSubnet1CIDR:
+    Description: CIDR block for Internet TGW subnet 1 located in the 1st Availability Zone
     Type: String
-    Default: 10.0.14.0/24
+    Default: 10.1.11.0/24
     AllowedPattern: '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/(1[6-9]|2[0-8]))$'
     ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
-  GWLBeSubnet2CIDR:
-    Description: CIDR block for GWLBe subnet 2 located in the 2nd Availability Zone
+  InetTgwSubnet2CIDR:
+    Description: CIDR block for Internet TGW subnet 2 located in the 2nd Availability Zone
     Type: String
-    Default: 10.0.24.0/24
+    Default: 10.1.21.0/24
     ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
-  GWLBeSubnet3CIDR:
-    Description: CIDR block for GWLBe subnet 3 located in the 3rd Availability Zone
+  InetTgwSubnet3CIDR:
+    Description: CIDR block for Internet TGW subnet 3 located in the 3rd Availability Zone
     Type: String
-    Default: 10.0.34.0/24
+    Default: 10.1.31.0/24
     AllowedPattern: '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/(1[6-9]|2[0-8]))$'
     ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
-  GWLBeSubnet4CIDR:
-    Description: CIDR block for GWLBe subnet 4 located in the 4th Availability Zone
+  InetTgwSubnet4CIDR:
+    Description: CIDR block for Internet TGW subnet 4 located in the 4th Availability Zone
     Type: String
-    Default: 10.0.44.0/24
+    Default: 10.1.41.0/24
     ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
   KeyName:
     Description: The EC2 Key Pair to allow SSH access to the instances created by this stack
@@ -341,7 +363,7 @@ Parameters:
   GatewayInstanceType:
     Description: The EC2 instance type for the Security Gateways
     Type: String
-    Default: c5.xlarge
+    Default: c5.large
     AllowedValues:
       - c5.large
       - c5.xlarge
@@ -410,7 +432,7 @@ Parameters:
   ManagementInstanceType:
     Description: The EC2 instance type of the Security Management Server
     Type: String
-    Default: m5.xlarge
+    Default: m5.large
     AllowedValues:
       - m5.large
       - m5.xlarge
@@ -451,6 +473,7 @@ Parameters:
   GatewaysAddresses:
     Description: Allow gateways only from this network to communicate with the Security Management Server
     Type: String
+    Default: 10.0.0.0/8
     AllowedPattern: '^([0-9]{1,3}\.){3}[0-9]{1,3}/([0-9]|[1-2][0-9]|3[0-2])$'
 Conditions:
   4AZs: !Equals [!Ref NumberOfAZs, 4]
@@ -458,7 +481,7 @@ Conditions:
   DeployManagement: !Equals [!Ref ManagementDeploy, true]
   VolumeEncryption: !Equals [!Ref EnableVolumeEncryption, true]
 Resources:
-  VPCStack:
+  SecVPCStack:
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL: https://cgi-cfts.s3.amazonaws.com/utils/vpc.yaml
@@ -468,41 +491,66 @@ Resources:
         VPCCIDR: !Ref SecVPCCIDR
         PublicSubnet1CIDR: !Ref PublicSubnet1CIDR
         PublicSubnet2CIDR: !Ref PublicSubnet2CIDR
-        PublicSubnet3CIDR: !Ref PublicSubnet3CIDR
-        PublicSubnet4CIDR: !Ref PublicSubnet4CIDR
+        PublicSubnet3CIDR: !If [3AZs, !Ref PublicSubnet3CIDR, ""]
+        PublicSubnet4CIDR: !If [4AZs, !Ref PublicSubnet4CIDR, ""]
         CreatePrivateSubnets: false
         CreateTgwSubnets: true
         TgwSubnet1CIDR: !Ref TgwSubnet1CIDR
         TgwSubnet2CIDR: !Ref TgwSubnet2CIDR
-        TgwSubnet3CIDR: !Ref TgwSubnet3CIDR
-        TgwSubnet4CIDR: !Ref TgwSubnet4CIDR
+        TgwSubnet3CIDR: !If [3AZs, !Ref TgwSubnet3CIDR, ""]
+        TgwSubnet4CIDR: !If [4AZs, !Ref TgwSubnet4CIDR, ""]
+  InetVPCStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://cgi-cfts.s3.amazonaws.com/utils/vpc.yaml
+      Parameters:
+        AvailabilityZones: !Join [',', !Ref AvailabilityZones]
+        NumberOfAZs: !Ref NumberOfAZs
+        VPCCIDR: !Ref InetVPCCIDR
+        PublicSubnet1CIDR: !Ref NatGwSubnet1CIDR
+        PublicSubnet2CIDR: !Ref NatGwSubnet2CIDR
+        PublicSubnet3CIDR: !If [3AZs, !Ref NatGwSubnet3CIDR, ""]
+        PublicSubnet4CIDR: !If [4AZs, !Ref NatGwSubnet4CIDR, ""]
+        CreatePrivateSubnets: false
+        CreateTgwSubnets: true
+        TgwSubnet1CIDR: !Ref InetTgwSubnet1CIDR
+        TgwSubnet2CIDR: !Ref InetTgwSubnet2CIDR
+        TgwSubnet3CIDR: !If [3AZs, !Ref InetTgwSubnet3CIDR, ""]
+        TgwSubnet4CIDR: !If [4AZs, !Ref InetTgwSubnet4CIDR, ""]
   TgwGwlbStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: https://cgi-cfts.s3.amazonaws.com/gwlb/tgw-gwlb.yaml
+      TemplateURL: https://chkp-gwlb.s3.amazonaws.com/tgw-gwlb.yaml
       Parameters:
-        VPC: !GetAtt VPCStack.Outputs.VPCID
-        IGWID: !GetAtt VPCStack.Outputs.IGWID
+        TgwID: !Ref TgwID
+        SecVPC: !GetAtt SecVPCStack.Outputs.VPCID
+        SecIGWID: !GetAtt SecVPCStack.Outputs.IGWID
         AvailabilityZones: !Join [',', !Ref AvailabilityZones]
         NumberOfAZs: !Ref NumberOfAZs
         GatewaysSubnets: !Join
           - ','
-          - - !GetAtt VPCStack.Outputs.PublicSubnet1ID
-            - !GetAtt VPCStack.Outputs.PublicSubnet2ID
-            - !If [3AZs, !GetAtt VPCStack.Outputs.PublicSubnet3ID, !Ref 'AWS::NoValue']
-            - !If [4AZs, !GetAtt VPCStack.Outputs.PublicSubnet4ID, !Ref 'AWS::NoValue']
-        TgwSubnet1Id: !GetAtt VPCStack.Outputs.TgwSubnet1ID
-        TgwSubnet2Id: !GetAtt VPCStack.Outputs.TgwSubnet2ID
-        TgwSubnet3Id: !If [3AZs, !GetAtt VPCStack.Outputs.TgwSubnet3ID, ""]
-        TgwSubnet4Id: !If [4AZs, !GetAtt VPCStack.Outputs.TgwSubnet4ID, ""]
-        NatGwSubnet1CIDR: !Ref NatGwSubnet1CIDR
-        NatGwSubnet2CIDR: !Ref NatGwSubnet2CIDR
-        NatGwSubnet3CIDR: !Ref NatGwSubnet3CIDR
-        NatGwSubnet4CIDR: !Ref NatGwSubnet4CIDR
-        GWLBeSubnet1CIDR: !Ref GWLBeSubnet1CIDR
-        GWLBeSubnet2CIDR: !Ref GWLBeSubnet2CIDR
-        GWLBeSubnet3CIDR: !Ref GWLBeSubnet3CIDR
-        GWLBeSubnet4CIDR: !Ref GWLBeSubnet4CIDR
+          - - !GetAtt SecVPCStack.Outputs.PublicSubnet1ID
+            - !GetAtt SecVPCStack.Outputs.PublicSubnet2ID
+            - !If [3AZs, !GetAtt SecVPCStack.Outputs.PublicSubnet3ID, !Ref 'AWS::NoValue']
+            - !If [4AZs, !GetAtt SecVPCStack.Outputs.PublicSubnet4ID, !Ref 'AWS::NoValue']
+        TgwSubnet1Id: !GetAtt SecVPCStack.Outputs.TgwSubnet1ID
+        TgwSubnet2Id: !GetAtt SecVPCStack.Outputs.TgwSubnet2ID
+        TgwSubnet3Id: !If [3AZs, !GetAtt SecVPCStack.Outputs.TgwSubnet3ID, ""]
+        TgwSubnet4Id: !If [4AZs, !GetAtt SecVPCStack.Outputs.TgwSubnet4ID, ""]
+        InetVPC: !GetAtt InetVPCStack.Outputs.VPCID
+        InetIGWID: !GetAtt InetVPCStack.Outputs.IGWID
+        InetTgwSubnet1Id: !GetAtt InetVPCStack.Outputs.TgwSubnet1ID
+        InetTgwSubnet2Id: !GetAtt InetVPCStack.Outputs.TgwSubnet2ID
+        InetTgwSubnet3Id: !If [ 3AZs, !GetAtt InetVPCStack.Outputs.TgwSubnet3ID, ""]
+        InetTgwSubnet4Id: !If [ 4AZs, !GetAtt InetVPCStack.Outputs.TgwSubnet4ID, ""]
+        NatGwSubnet1Id: !GetAtt InetVPCStack.Outputs.PublicSubnet1ID
+        NatGwSubnet2Id: !GetAtt InetVPCStack.Outputs.PublicSubnet2ID
+        NatGwSubnet3Id: !If [3AZs, !GetAtt InetVPCStack.Outputs.PublicSubnet3ID, ""]
+        NatGwSubnet4Id: !If [4AZs, !GetAtt InetVPCStack.Outputs.PublicSubnet4ID, ""]
+        SecSubnet1Id: !GetAtt SecVPCStack.Outputs.PublicSubnet1ID
+        SecSubnet2Id: !GetAtt SecVPCStack.Outputs.PublicSubnet2ID
+        SecSubnet3Id: !If [3AZs, !GetAtt SecVPCStack.Outputs.PublicSubnet3ID, ""]
+        SecSubnet4Id: !If [4AZs, !GetAtt SecVPCStack.Outputs.PublicSubnet4ID, ""]
         KeyName: !Ref KeyName
         EnableVolumeEncryption: !Ref EnableVolumeEncryption
         EnableInstanceConnect: !Ref EnableInstanceConnect
@@ -534,7 +582,7 @@ Resources:
 Outputs:
   VPCID:
     Description: VPC ID
-    Value: !GetAtt VPCStack.Outputs.VPCID
+    Value: !GetAtt SecVPCStack.Outputs.VPCID
   ManagementPublicAddress:
     Description: The public address of the management server
     Value: !GetAtt TgwGwlbStack.Outputs.ManagementPublicAddress
@@ -553,29 +601,57 @@ Outputs:
     Value: !GetAtt TgwGwlbStack.Outputs.GWLBServiceName
   TgwSubnet1ID:
     Description: TGW subnet 1 ID in Availability Zone 1
-    Value: !GetAtt VPCStack.Outputs.TgwSubnet1ID
+    Value: !GetAtt SecVPCStack.Outputs.TgwSubnet1ID
   TgwSubnet2ID:
     Description: TGW subnet 2 ID in Availability Zone 2
-    Value: !GetAtt VPCStack.Outputs.TgwSubnet2ID
+    Value: !GetAtt SecVPCStack.Outputs.TgwSubnet2ID
   TgwSubnet3ID:
     Description: TGW subnet 3 ID in Availability Zone 3
-    Value: !GetAtt VPCStack.Outputs.TgwSubnet3ID
+    Value: !GetAtt SecVPCStack.Outputs.TgwSubnet3ID
     Condition: 3AZs
   TgwSubnet4ID:
     Description: TGW subnet 4 ID in Availability Zone 4
-    Value: !GetAtt VPCStack.Outputs.TgwSubnet4ID
+    Value: !GetAtt SecVPCStack.Outputs.TgwSubnet4ID
     Condition: 4AZs
   TgwSubnet1CIDR:
     Description: TGW subnet 1 CIDR in Availability Zone 1
-    Value: !GetAtt VPCStack.Outputs.TgwSubnet1CIDR
+    Value: !GetAtt SecVPCStack.Outputs.TgwSubnet1CIDR
   TgwSubnet2CIDR:
     Description: TGW subnet 2 CIDR in Availability Zone 2
-    Value: !GetAtt VPCStack.Outputs.TgwSubnet2CIDR
+    Value: !GetAtt SecVPCStack.Outputs.TgwSubnet2CIDR
   TgwSubnet3CIDR:
     Description: TGW subnet 3 CIDR in Availability Zone 3
-    Value: !GetAtt VPCStack.Outputs.TgwSubnet3CIDR
+    Value: !GetAtt SecVPCStack.Outputs.TgwSubnet3CIDR
     Condition: 3AZs
   TgwSubnet4CIDR:
     Description: TGW subnet 4 CIDR in Availability Zone 4
-    Value: !GetAtt VPCStack.Outputs.TgwSubnet4CIDR
+    Value: !GetAtt SecVPCStack.Outputs.TgwSubnet4CIDR
+    Condition: 4AZs
+  InetTgwSubnet1ID:
+    Description: InetTGW subnet 1 ID in Availability Zone 1
+    Value: !GetAtt InetVPCStack.Outputs.TgwSubnet1ID
+  InetTgwSubnet2ID:
+    Description: InetTGW subnet 2 ID in Availability Zone 2
+    Value: !GetAtt InetVPCStack.Outputs.TgwSubnet2ID
+  InetTgwSubnet3ID:
+    Description: InetTGW subnet 3 ID in Availability Zone 3
+    Value: !GetAtt InetVPCStack.Outputs.TgwSubnet3ID
+    Condition: 3AZs
+  InetTgwSubnet4ID:
+    Description: InetTGW subnet 4 ID in Availability Zone 4
+    Value: !GetAtt InetVPCStack.Outputs.TgwSubnet4ID
+    Condition: 4AZs
+  InetTgwSubnet1CIDR:
+    Description: InetTGW subnet 1 CIDR in Availability Zone 1
+    Value: !GetAtt InetVPCStack.Outputs.TgwSubnet1CIDR
+  InetTgwSubnet2CIDR:
+    Description: InetTGW subnet 2 CIDR in Availability Zone 2
+    Value: !GetAtt InetVPCStack.Outputs.TgwSubnet2CIDR
+  InetTgwSubnet3CIDR:
+    Description: InetTGW subnet 3 CIDR in Availability Zone 3
+    Value: !GetAtt InetVPCStack.Outputs.TgwSubnet3CIDR
+    Condition: 3AZs
+  InetTgwSubnet4CIDR:
+    Description: InetTGW subnet 4 CIDR in Availability Zone 4
+    Value: !GetAtt InetVPCStack.Outputs.TgwSubnet4CIDR
     Condition: 4AZs
