@@ -551,6 +551,7 @@ Resources:
         SecSubnet2Id: !GetAtt SecVPCStack.Outputs.PublicSubnet2ID
         SecSubnet3Id: !If [3AZs, !GetAtt SecVPCStack.Outputs.PublicSubnet3ID, ""]
         SecSubnet4Id: !If [4AZs, !GetAtt SecVPCStack.Outputs.PublicSubnet4ID, ""]
+        InetPublicRt: !GetAtt InetVPCStack.Outputs.PublicSubnetRouteTable
         KeyName: !Ref KeyName
         EnableVolumeEncryption: !Ref EnableVolumeEncryption
         EnableInstanceConnect: !Ref EnableInstanceConnect

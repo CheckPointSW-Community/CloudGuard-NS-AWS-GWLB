@@ -13,7 +13,7 @@ Looks up VPC and associated subnets based on tags.
 Returns the VPC and Subnet values back to the custom resource.
 
 Runtime: python3.8
-Last Modified: 6/11/2021 by chkp-jeffkopko
+Last Modified: 7/12/2021 by chkp-jeffkopko
 """
 
 from __future__ import print_function
@@ -51,51 +51,54 @@ def lambda_handler(event, context):
     sec_subnets = event['ResourceProperties']['sec_subnets']
     inet_subnets = event['ResourceProperties']['inet_subnets']
 
-    if event['RequestType'] in ['Update', 'Create']:
-        log.info('Event = ' + event['RequestType'])
-
-        #create attachments for sec & inet VPC's and record their ID's
-        sec_attach_id  = create_tgw_attachment(tgw_id, sec_vpc_id, sec_subnets, True)
-        inet_attach_id = create_tgw_attachment(tgw_id, inet_vpc_id, inet_subnets, False)
-
-        #create RT for egress and ingress
-        egress_rt = create_tgw_rt(tgw_id, "tgw-egress", False)
-        ingress_rt = create_tgw_rt(tgw_id, "tgw-ingress", True)
-
-        #create RT routes
-        create_tgw_rt_route(ingress_rt, "0.0.0.0/0", sec_attach_id)
-        # duplicate as needed for all spokes to propagate routes
-        create_tgw_rt_propagate(egress_rt, inet_attach_id)
-        create_tgw_rt_route(egress_rt, "0.0.0.0/0", inet_attach_id)
-
-        #associate RT to attachments
-        create_tgr_rt_assoc(egress_rt, sec_attach_id)
-        #duplicate this as needed for all spokes
-        create_tgr_rt_assoc(ingress_rt, inet_attach_id)
-
-        #TO DO
-            #attach spokes
-            #add Spoke Routes to agress RT
-            #modify Spoke VPC RT to point to TGW
-            #add spoke routes to Inet VPC NATGW Subnet RT
-
-
-        # spoke route attachments
-        #create_service_link_role()
-        vpc_metadata = get_vpc_metadata(account, region, vpc_tags, cidr)
-        create_transit_gateway_spoke_attachments(vpc_metadata, tgw_id, egress_rt, ingress_rt)
-        create_vpc_route_to_tgw(vpc_metadata, tgw_id, cidr)
-
-        #send(event, context, 'SUCCESS', response_data)
-
-    else:
-        log.error("failed to run")
-        send(event, context, 'FAILED', response_data)
 
     if event['RequestType'] in ['Delete']:
         log.info('Event = ' + event['RequestType'])
 
         send(event, context, 'SUCCESS', response_data)
+
+    else:
+        try:
+            log.info('Event = ' + event['RequestType'])
+
+            #create attachments for sec & inet VPC's and record their ID's
+            sec_attach_id  = create_tgw_attachment(tgw_id, sec_vpc_id, sec_subnets, True)
+            inet_attach_id = create_tgw_attachment(tgw_id, inet_vpc_id, inet_subnets, False)
+
+            #create RT for egress and ingress
+            egress_rt = create_tgw_rt(tgw_id, "tgw-egress", False)
+            ingress_rt = create_tgw_rt(tgw_id, "tgw-ingress", True)
+
+            #create RT routes
+            create_tgw_rt_route(ingress_rt, "0.0.0.0/0", sec_attach_id)
+            # duplicate as needed for all spokes to propagate routes
+            create_tgw_rt_propagate(egress_rt, inet_attach_id)
+            create_tgw_rt_route(egress_rt, "0.0.0.0/0", inet_attach_id)
+
+            #associate RT to attachments
+            create_tgr_rt_assoc(egress_rt, sec_attach_id)
+            #duplicate this as needed for all spokes
+            create_tgr_rt_assoc(ingress_rt, inet_attach_id)
+
+            #TO DO
+                #attach spokes
+                #add Spoke Routes to agress RT
+                #modify Spoke VPC RT to point to TGW
+                #add spoke routes to InetVPC NATGW Subnet RT
+
+
+            # spoke route attachments
+            #create_service_link_role()
+            #currently, this takes too long and it's causing a lambda timeout.  Find a different way to do this and/or break this task down into managable chunks
+            #vpc_metadata = get_vpc_metadata(account, region, vpc_tags, cidr)
+            #create_transit_gateway_spoke_attachments(vpc_metadata, tgw_id, egress_rt, ingress_rt)
+            #create_vpc_route_to_tgw(vpc_metadata, tgw_id, cidr)
+
+            send(event, context, 'SUCCESS', response_data)
+
+        except Exception as e:
+            log.error("failed to run")
+            send(event, context, 'FAILED', response_data)
 
 def create_tgw_attachment(tgw_id, vpc_id, subnets, appliance):
 
@@ -105,6 +108,7 @@ def create_tgw_attachment(tgw_id, vpc_id, subnets, appliance):
             "SubnetIds": subnets,
     }
 
+    #handle TGW appliance mode for Security VPC
     if appliance:
         data["Options"] = {"ApplianceModeSupport":"enable"}
         data["TagSpecifications"]= [
@@ -122,15 +126,17 @@ def create_tgw_attachment(tgw_id, vpc_id, subnets, appliance):
             ]
     try:
         response = EC2_CLIENT.create_transit_gateway_vpc_attachment(**data)
-        ("CREATED TGW Attachment for  VPC: " + vpc_id + " with attachment ID: " + response["TransitGatewayVpcAttachment"]["TransitGatewayAttachmentId"])
+        time.sleep(50)
+        print("CREATED TGW Attachment for  VPC: " + vpc_id + " with attachment ID: " + response["TransitGatewayVpcAttachment"]["TransitGatewayAttachmentId"])
+        return response["TransitGatewayVpcAttachment"]["TransitGatewayAttachmentId"]
+
     except Exception as e:
-        log.info("Error creating TGW Attach for " + vpc_id)
+        print("Error creating TGW Attach for " + vpc_id)
         log.error(e)
+        time.sleep(50)
         return None
 
-    time.sleep(90)
 
-    return response["TransitGatewayVpcAttachment"]["TransitGatewayAttachmentId"]
 
 def create_tgw_rt(tgw_id, name, default_rt):
 
@@ -149,13 +155,19 @@ def create_tgw_rt(tgw_id, name, default_rt):
                 },
             ]
         )
-        log.info("CREATED TGW RT VPC: " + name + " with ID: " + response["TransitGatewayRouteTable"]["TransitGatewayRouteTableId"])
+        time.sleep(45)
+
+        print("CREATED TGW RT" + name + " with ID: " + response["TransitGatewayRouteTable"]["TransitGatewayRouteTableId"])
+
+        return response["TransitGatewayRouteTable"]["TransitGatewayRouteTableId"]
     except Exception as e:
-        log.info("Error creating TGW RT " + name)
+        print("Error creating TGW RT " + name)
         log.error(e)
+        time.sleep(45)
+
         return None
 
-    return response["TransitGatewayRouteTable"]["TransitGatewayRouteTableId"]
+
 
 def create_tgw_rt_route (tgw_rt, cidr, attach_id):
     try:
@@ -164,11 +176,12 @@ def create_tgw_rt_route (tgw_rt, cidr, attach_id):
             TransitGatewayRouteTableId=tgw_rt,
             TransitGatewayAttachmentId=attach_id,
         )
-        log.info("CREATED TGW Route in RT: " + tgw_rt  + " for " + CIDR)
+        print("CREATED TGW Route in RT: " + tgw_rt  + " for " + cidr)
     except Exception as e:
-        log.info("Error creating route for RT: " + tgw_rt + " with attachment: " + attach_id)
+        print("Error creating route for RT: " + tgw_rt + " with attachment: " + attach_id)
         log.error(e)
-        return None
+
+    time.sleep(30)
 
 def create_tgw_rt_propagate(tgw_rt, attach_id):
     try:
@@ -176,10 +189,12 @@ def create_tgw_rt_propagate(tgw_rt, attach_id):
             TransitGatewayRouteTableId=tgw_rt,
             TransitGatewayAttachmentId=attach_id,
         )
+
     except Exception as e:
-        log.info("Error creating propagate for attachment: " + attach_id)
+        print("Error creating propagate for attachment: " + attach_id)
         log.error(e)
-        return None
+
+    time.sleep(30)
 
 def create_tgr_rt_assoc(tgw_rt, attach_id):
     try:
@@ -187,42 +202,47 @@ def create_tgr_rt_assoc(tgw_rt, attach_id):
             TransitGatewayRouteTableId=tgw_rt,
             TransitGatewayAttachmentId=attach_id,
         )
+        print("Successfully created RT assoc for RT: " + tgw_rt + "with attachment: " + attach_id)
+
     except Exception as e:
-        log.info("Error creating RT assoc for RT: " + tgw_rt + "with attachment: " + attach_id)
+        print("Error creating RT assoc for RT: " + tgw_rt + "with attachment: " + attach_id)
         log.error(e)
-        return None
+    time.sleep(30)
 
 def create_transit_gateway_spoke_attachments(vpc_metadata, tgw_id, egress_rt, ingress_rt):
     for entry in vpc_metadata:
         if entry['Subnet']:
             try:
-                attach_name = entry['Vpc'] + "Attachment"
+                attach_name = entry['Name'] + "tgw-attach"
                 data = {
                     "TransitGatewayId": tgw_id,
                     "VpcId": entry['Vpc'],
-                    "SubnetIds": entry['Subnet']
+                    "SubnetIds": entry['Subnet'],
                     "TagSpecifications" : [
                         {
-                        "ResourceType": "transit-gateway-attachment",
-                        "Tags": [{"Key": "Name", "Value": attach_name}, ]
+                            "ResourceType": "transit-gateway-attachment",
+                            "Tags": [{"Key": "Name", "Value": attach_name}, ]
                         }
                     ]
                 }
 
                 response = EC2_CLIENT.create_transit_gateway_vpc_attachment(**data)
+                time.sleep(45)
 
                 new_attach_id = response["TransitGatewayVpcAttachment"]["TransitGatewayAttachmentId"]
-
-                time.sleep(90)
 
                 #add Spoke VPC Propagation to TGW Egress RT
                 create_tgw_rt_propagate(egress_rt, new_attach_id)
 
+                time.sleep(30)
+
                 #associate ingress RT with newly created spoke attachment
                 create_tgr_rt_assoc(ingress_rt, new_attach_id)
 
-                log.info ("created new TGW attachment for VPC: " + entry['Vpc'] + "with attach ID: " + new_attach_id)
-                log.info ("forced inspection through Check Point Security VPC")
+                time.sleep(30)
+
+                print("created new TGW attachment for VPC: " + entry['Vpc'] + "with attach ID: " + new_attach_id)
+                print("forced inspection through Check Point Security VPC")
 
             except Exception as e:
                 log.error(e)
@@ -241,7 +261,10 @@ def get_vpc_metadata(account, region, vpc_tags, cidr):
             get_vpc_response = EC2_CLIENT.describe_vpcs()
             for vpc in get_vpc_response['Vpcs']:
                 if 'Tags' in vpc:
+                    name = ''
                     for tag_value in vpc['Tags']:
+                        if tag_value['Key'] == "Name":
+                            name = tag_value['Value']
                         if tag_value['Value'] == tag:
                             metadata = {}
                             returned_vpc = vpc['VpcId']
@@ -251,7 +274,9 @@ def get_vpc_metadata(account, region, vpc_tags, cidr):
                             metadata['Subnet'] = subnets
                             metadata['Route_Table'] = route_table
                             metadata['Cidr'] = vpc['CidrBlock']
-                            returned_metadata.append(metadata)
+                            metadata['Name'] = name
+
+                    returned_metadata.append(metadata)
 
         except Exception as e:
             log.error(e)
@@ -373,7 +398,7 @@ def create_vpc_route_to_tgw(vpc_metadata, tgw_id, cidr):
                          ' with a destination of ' + tgw_id)
 
             except Exception as e:
-                print('error in spoke attachment with: ' + entry['Subnet'])
+                print('error in spoke attachment with: ' + entry['Vpc'])
                 log.error(e)
                 return None
 
@@ -406,16 +431,16 @@ def setup_logging():
     if 'logging_level' in os.environ:
         log_level = os.environ['logging_level'].upper()
         if log_level in log_levels:
-            log.setLevel(log_levels[log_level])
+            log.setLevel(log_levels['INFO'])
         else:
-            log.setLevel(log_levels['ERROR'])
+            log.setLevel(log_levels['INFO'])
             log.error("The logging_level environment variable is not set \
                       to INFO, WARNING, or ERROR. \
                       The log level is set to ERROR")
     else:
         log.setLevel(log_levels['ERROR'])
         log.warning('The logging_level environment variable is not set.')
-        log.warning('Setting the log level to ERROR')
+        log.warning('Setting the log level to INFO')
     log.info('Logging setup complete - set to log level '
              + str(log.getEffectiveLevel()))
 

@@ -36,6 +36,7 @@ Metadata:
           - NatGwSubnet2Id
           - NatGwSubnet3Id
           - NatGwSubnet4Id
+          - InetPublicRt
       - Label:
           default: General Settings
         Parameters:
@@ -125,6 +126,8 @@ Metadata:
         default: Inet Transit Gateway Attachment subnet 3 Id
       InetTgwSubnet4Id:
         default: Inet Transit Gateway Attachment subnet 4 Id
+      InetPublicRt:
+        default: Inet VPC Public RT Id
       KeyName:
         default: Key name
       EnableVolumeEncryption:
@@ -246,6 +249,11 @@ Parameters:
     Type: AWS::EC2::VPC::Id
     MinLength: 1
     ConstraintDescription: You must select an Inet VPC
+  InetPublicRt:
+    Description: Select the RT ID of the Internet VPC's Public Route Table
+    Type: String
+    MinLength: 1
+    ConstraintDescription: You must select an Inet Public Route Table
   InetIGWID:
     Description: Internet VPC's Internet Gateway Id (e.g. igw-123a4567)
     Type: String
@@ -791,9 +799,10 @@ Resources:
         - Key: Network
           Value: Public
   SecSubnet1TGWDefaultRoute:
+    DependsOn: [TgwAttachLambda]
     Type: AWS::EC2::Route
     Properties:
-      DestinationCidrBlock: 0.0.0.0/0
+      DestinationCidrBlock: 10.0.0.0/8
       TransitGatewayId: !Ref TgwID
       RouteTableId: !Ref SecSubnet1RouteTable
   SecSubnet1RouteTableAssociation:
@@ -811,9 +820,10 @@ Resources:
         - Key: Network
           Value: Public
   SecSubnet2TGWDefaultRoute:
+    DependsOn: [TgwAttachLambda]
     Type: AWS::EC2::Route
     Properties:
-      DestinationCidrBlock: 0.0.0.0/0
+      DestinationCidrBlock: 10.0.0.0/8
       TransitGatewayId: !Ref TgwID
       RouteTableId: !Ref SecSubnet2RouteTable
   SecSubnet2RouteTableAssociation:
@@ -832,10 +842,11 @@ Resources:
         - Key: Network
           Value: Public
   SecSubnet3TGWDefaultRoute:
+    DependsOn: [TgwAttachLambda]
     Type: AWS::EC2::Route
     Condition: 3AZs
     Properties:
-      DestinationCidrBlock: 0.0.0.0/0
+      DestinationCidrBlock: 10.0.0.0/8
       TransitGatewayId: !Ref TgwID
       RouteTableId: !Ref SecSubnet3RouteTable
   SecSubnet3RouteTableAssociation:
@@ -855,10 +866,11 @@ Resources:
         - Key: Network
           Value: Public
   SecSubnet4TGWDefaultRoute:
+    DependsOn: [TgwAttachLambda]
     Type: AWS::EC2::Route
     Condition: 4AZs
     Properties:
-      DestinationCidrBlock: 0.0.0.0/0
+      DestinationCidrBlock: 10.0.0.0/8
       TransitGatewayId: !Ref TgwID
       RouteTableId: !Ref SecSubnet4RouteTable
   SecSubnet4RouteTableAssociation:
@@ -867,6 +879,27 @@ Resources:
     Properties:
       RouteTableId: !Ref SecSubnet4RouteTable
       SubnetId: !Ref SecSubnet4Id
+  InetVPC10SpokeRoute:
+    DependsOn: [TgwAttachLambda]
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 10.0.0.0/8
+      TransitGatewayId: !Ref TgwID
+      RouteTableId: !Ref InetPublicRt
+  InetVPC172SpokeRoute:
+    DependsOn: [TgwAttachLambda]
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 172.16.0.0/12
+      TransitGatewayId: !Ref TgwID
+      RouteTableId: !Ref InetPublicRt
+  InetVPC192SpokeRoute:
+    DependsOn: [TgwAttachLambda]
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 192.168.0.0/16
+      TransitGatewayId: !Ref TgwID
+      RouteTableId: !Ref InetPublicRt
   TgwAttachLambda:
     Type: AWS::CloudFormation::Stack
     Condition: TGWAttach

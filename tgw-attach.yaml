@@ -118,25 +118,25 @@ Resources:
       Description: Captures VPC metadata for Transit Gateway Attachments
       Handler: index.lambda_handler
       Runtime: python3.8
-      Timeout: 600
+      Timeout: 900
       Code:
         S3Bucket: !Ref pTGWLambdaS3Bucket
         S3Key: !Ref pTGWLambdaS3Key
 
-#  rGetVpcLambdaCustomInvoke:
-#    Type: Custom::GetVPCLambdaInvoke
-#    DependsOn: rGetVpcLambda
-#    Properties:
-#      ServiceToken: !GetAtt [ rGetVpcLambda, Arn ]
-#      Vpc_Tags: !Ref pVpcTag
-#      Account: !Sub ${AWS::AccountId}
-#      Region: !Sub ${AWS::Region}
-#      CIDR: !Ref pRoute
-#      tgw_id: !Ref pTransitGatewayId
-#      sec_vpc_id: !Ref pSecVpcId
-#      inet_vpc_id: !Ref pInetVpcId
-#      sec_subnets: !Ref pSecTgwAttachSubnets
-#      inet_subnets: !Ref pInetTgwAttachSubnets
+  rGetVpcLambdaCustomInvoke:
+    Type: Custom::GetVPCLambdaInvoke
+    DependsOn: rGetVpcLambda
+    Properties:
+      ServiceToken: !GetAtt [ rGetVpcLambda, Arn ]
+      Vpc_Tags: !Ref pVpcTag
+      Account: !Sub ${AWS::AccountId}
+      Region: !Sub ${AWS::Region}
+      CIDR: !Ref pRoute
+      tgw_id: !Ref pTransitGatewayId
+      sec_vpc_id: !Ref pSecVpcId
+      inet_vpc_id: !Ref pInetVpcId
+      sec_subnets: !Ref pSecTgwAttachSubnets
+      inet_subnets: !Ref pInetTgwAttachSubnets
 
   # Lambda permission - event rule can trigger evaluation
   rLambdaPermission:
