@@ -8,7 +8,7 @@ This repo contains scripts to automate AWS VPC architecture to support EWNS traf
 - Route Propagation of Inet VPC routes into TGW Egress RT
 - Static route 0.0.0.0/0 --> Security VPC into TGW Ingress RT
 
-## Future script capabilities: 
+## Todo: 
 - Search for VPC's with a given tag to attach to TGW
     - For Each properly Tagged VPC
         - Create TGW attachment for the Tagged VPC
