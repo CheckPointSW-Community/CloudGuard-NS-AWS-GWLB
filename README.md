@@ -6,7 +6,7 @@ AWS VPC architecture to support  traffic inspection w/ Check Point CGNS via GWLB
 
 This is an extension of Check Point AWS Cloud Formation templates for deployment of GWLB architectures.  This template creates a Securityu VPC + Internet VPC and optionally attaches them to a TGW for a centralized Security VPC with inspection by CGNS.
 
-![alt text] [Architecture]
+![Architecture]
 
 [Architecture]: https://sc1.checkpoint.com/sc/SolutionsStatics/sk174447/GWLBArch-Central2202107150957181.jpg "CHKP GWLB Arch 3"
 
