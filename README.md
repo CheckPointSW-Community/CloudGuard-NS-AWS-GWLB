@@ -1,9 +1,14 @@
 # CloudGuard Network Security Architectures for GWLB
 AWS VPC architecture to support  traffic inspection w/ Check Point CGNS via GWLB Security VPC with ALB for ingress
 
+[Check Point Reference Knowledge Article with detailed description](https://supportcenter.checkpoint.com/supportcenter/portal?eventSubmit_doGoviewsolutiondetails=&solutionid=sk174447)
 ## What does it to?
 
 This is an extension of Check Point AWS Cloud Formation templates for deployment of GWLB architectures.  This template creates a Securityu VPC + Internet VPC and optionally attaches them to a TGW for a centralized Security VPC with inspection by CGNS.
+
+![alt text] [Architecture]
+
+[Architecture]: https://sc1.checkpoint.com/sc/SolutionsStatics/sk174447/GWLBArch-Central2202107150957181.jpg "CHKP GWLB Arch 3"
 
 ## Requirements
 - ability to deploy cloud formation templates
@@ -26,7 +31,7 @@ This is an extension of Check Point AWS Cloud Formation templates for deployment
     - Gateway Load Balancer Configuration:
         - Gateway Load Balancer Name: Name assigned to AWS GWLB
         - Target Group Name: Name assigned to AWS Target group used by GWLB
-4. CFT executes the followign
+4. CFT executes the following
     - creates GWLB infrastgructure and CGNS ASG
     - creates a Lambda Function to create TGW attachments and RT creation/association for Security & Internet VPC
     - adds routes for 10.0.0.0/8 --> TGW to Security & Internet VPCs 
