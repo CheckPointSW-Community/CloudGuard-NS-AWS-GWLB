@@ -4,6 +4,11 @@ Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
       - Label:
+          default: Template & Lambda Code in S3
+        Parameters:
+          - S3Bucket
+          - LambdaS3Key
+      - Label:
           default: TGW Info
         Parameters:
           - TgwID
@@ -78,6 +83,10 @@ Metadata:
           - GatewayManagement
           - GatewaysAddresses
     ParameterLabels:
+      S3Bucket:
+        default: S3 Bucket where CFTs are located
+      LambdaS3Key:
+        default: S3 Bucket Key for TGW Attachment Lambda zip file
       TgwID:
         default: TGW ID for attaching Security and Internet VPCs
       SecVPC:
@@ -185,6 +194,14 @@ Metadata:
       GatewaysAddresses:
         default: Gateways addresses
 Parameters:
+  S3Bucket:
+    Description: S3 Bucket name where the nested CFT's are stored
+    Type: String
+    Default: chkp-gwlb
+  LambdaS3Key:
+    Description: S3 Key for lambda zip file
+    Type: String
+    Default:  lambda.zip
   TgwID:
     Description: TGW ID Security VPC and Inet VPC Attachment.  Leave Blank to skip automated attachment & RT creation
     Type: String
@@ -798,7 +815,7 @@ Resources:
           Value: Security Subnet 1 Route Table
         - Key: Network
           Value: Public
-  SecSubnet1TGWDefaultRoute:
+  SecSubnet1TGW10Route:
     DependsOn: [TgwAttachLambda]
     Type: AWS::EC2::Route
     Properties:
@@ -819,7 +836,7 @@ Resources:
           Value: Security Subnet 2 Route Table
         - Key: Network
           Value: Public
-  SecSubnet2TGWDefaultRoute:
+  SecSubnet2TGW10Route:
     DependsOn: [TgwAttachLambda]
     Type: AWS::EC2::Route
     Properties:
@@ -841,7 +858,7 @@ Resources:
           Value: Security Subnet 3 Route Table
         - Key: Network
           Value: Public
-  SecSubnet3TGWDefaultRoute:
+  SecSubnet3TGW10Route:
     DependsOn: [TgwAttachLambda]
     Type: AWS::EC2::Route
     Condition: 3AZs
@@ -865,7 +882,7 @@ Resources:
           Value: Security Subnet 4 Route Table
         - Key: Network
           Value: Public
-  SecSubnet4TGWDefaultRoute:
+  SecSubnet4TGW10Route:
     DependsOn: [TgwAttachLambda]
     Type: AWS::EC2::Route
     Condition: 4AZs
@@ -886,25 +903,15 @@ Resources:
       DestinationCidrBlock: 10.0.0.0/8
       TransitGatewayId: !Ref TgwID
       RouteTableId: !Ref InetPublicRt
-  InetVPC172SpokeRoute:
-    DependsOn: [TgwAttachLambda]
-    Type: AWS::EC2::Route
-    Properties:
-      DestinationCidrBlock: 172.16.0.0/12
-      TransitGatewayId: !Ref TgwID
-      RouteTableId: !Ref InetPublicRt
-  InetVPC192SpokeRoute:
-    DependsOn: [TgwAttachLambda]
-    Type: AWS::EC2::Route
-    Properties:
-      DestinationCidrBlock: 192.168.0.0/16
-      TransitGatewayId: !Ref TgwID
-      RouteTableId: !Ref InetPublicRt
   TgwAttachLambda:
     Type: AWS::CloudFormation::Stack
     Condition: TGWAttach
     Properties:
-      TemplateURL: https://chkp-gwlb.s3.amazonaws.com/tgw-attach.yaml
+      TemplateURL: !Join
+        - ''
+        - - https://
+          - !Ref S3Bucket
+          - .s3.amazonaws.com/tgw-attach.yaml
       Parameters:
         pTransitGatewayId: !Ref TgwID
         pSecVpcId: !Ref SecVPC
@@ -921,8 +928,8 @@ Resources:
             - !Ref InetTgwSubnet2Id
             - !If [3AZs, !Ref InetTgwSubnet3Id, !Ref 'AWS::NoValue']
             - !If [4AZs, !Ref InetTgwSubnet4Id, !Ref 'AWS::NoValue']
-        pTGWLambdaS3Bucket: "chkp-gwlb"
-        pTGWLambdaS3Key: "lambda.zip"
+        S3Bucket: !Ref S3Bucket
+        LambdaS3Key: !Ref LambdaS3Key
 
 
 

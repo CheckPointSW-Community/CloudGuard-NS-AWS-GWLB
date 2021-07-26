@@ -4,6 +4,11 @@ Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
       - Label:
+          default: Template & Lambda Code in S3
+        Parameters:
+          - S3Bucket
+          - LambdaS3Key
+      - Label:
           default: TGW Info
         Parameters:
           - TgwID
@@ -74,6 +79,10 @@ Metadata:
           - GatewayManagement
           - GatewaysAddresses
     ParameterLabels:
+      S3Bucket:
+        default: S3 Bucket where CFTs are located
+      LambdaS3Key:
+        default: S3 Bucket Key for TGW Attachment Lambda zip file
       TgwID:
         default: TGW ID for attaching Security and Internet VPCs
       AvailabilityZones:
@@ -173,6 +182,14 @@ Metadata:
       GatewaysAddresses:
         default: Gateways addresses
 Parameters:
+  S3Bucket:
+    Description: S3 Bucket name where the nested CFT's are stored
+    Type: String
+    Default: chkp-gwlb
+  LambdaS3Key:
+    Description: S3 Key for lambda zip file
+    Type: String
+    Default:  lambda.zip
   TgwID:
     Description: TGW ID Security VPC and Inet VPC Attachment.  Leave Blank to skip automated attachment & RT creation
     Type: String
@@ -520,7 +537,11 @@ Resources:
   TgwGwlbStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: https://chkp-gwlb.s3.amazonaws.com/tgw-gwlb.yaml
+      TemplateURL: !Join
+        - ''
+        - - https://
+          - !Ref S3Bucket
+          - .s3.amazonaws.com/tgw-gwlb.yaml
       Parameters:
         TgwID: !Ref TgwID
         SecVPC: !GetAtt SecVPCStack.Outputs.VPCID
@@ -580,6 +601,9 @@ Resources:
         AdminCIDR: !Ref AdminCIDR
         GatewayManagement: !Ref GatewayManagement
         GatewaysAddresses: !Ref GatewaysAddresses
+        S3Bucket: !Ref S3Bucket
+        LambdaS3Key: !Ref LambdaS3Key
+
 Outputs:
   VPCID:
     Description: VPC ID

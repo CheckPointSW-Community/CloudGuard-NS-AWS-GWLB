@@ -16,10 +16,10 @@ Metadata:
         - pSecTgwAttachSubnets
         - pInetTgwAttachSubnets
     - Label:
-        default: 'Lambda Settings'
+        default: 'S3 tempalte and Lambda storage'
       Parameters:
-        - pTGWLambdaS3Bucket
-        - pTGWLambdaS3Key
+        - 3Bucket
+        - LambdaS3Key
     ParameterLabels:
       pVpcTag:
         default: VPC Tag
@@ -35,9 +35,9 @@ Metadata:
         default: List of TGW Attach Subnets for Security VPC
       pInetTgwAttachSubnets:
         default: List of TGW Attach Subnets for Internet VPC
-      pTGWLambdaS3Bucket:
+      S3Bucket:
         default: S3 Bucket
-      pTGWLambdaS3Key:
+      LambdaS3Key:
         default: S3 Key
 
 
@@ -67,11 +67,11 @@ Parameters:
     Description: Select at least 2 TGW Attach Subnets for Internet VPC
     Type: List<AWS::EC2::Subnet::Id>
     MinLength: 2
-  pTGWLambdaS3Bucket:
+  S3Bucket:
     Description: S3 Bucket for Transit Gateway Attachment Lambda Code
     Type: String
     AllowedPattern: "^[0-9a-zA-Z]+([0-9a-zA-Z-]*[0-9a-zA-Z])*$"
-  pTGWLambdaS3Key:
+  LambdaS3Key:
     Description: The Key location of the Lambda zip for Transit Gateway Attachment.
     Type: String
     AllowedPattern: ^[a-zA-Z0-9[\\].\/()!:=?#,@+&;{}$-_]*
@@ -120,8 +120,8 @@ Resources:
       Runtime: python3.8
       Timeout: 900
       Code:
-        S3Bucket: !Ref pTGWLambdaS3Bucket
-        S3Key: !Ref pTGWLambdaS3Key
+        S3Bucket: !Ref S3Bucket
+        S3Key: !Ref LambdaS3Key
 
   rGetVpcLambdaCustomInvoke:
     Type: Custom::GetVPCLambdaInvoke
